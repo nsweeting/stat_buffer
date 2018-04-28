@@ -5,13 +5,13 @@ defmodule StatBuffer do
   A stat buffer is an efficient way to maintain a local incrementable count
   with a given key. In fast moving systems, this provides a scalable
   way keep track of counts without putting heavy loads on a database.
-  
+
   Creating a buffer is as easy as:
 
       defmodule Buffer do
         use StatBuffer
       end
-  
+
   Once we have defined our buffer module, all we must do is implement a
   `handle_flush/2` callback that allows us to perform an operation with a
   provided key and counter. This typically means updating a counter in a
@@ -74,7 +74,7 @@ defmodule StatBuffer do
 
   @doc """
   Callback for flushing a key for the buffer.
-  
+
   When a buffer key hits its set time interval, this function will be called and
   provided with the key as well its current counter.
 
@@ -89,10 +89,9 @@ defmodule StatBuffer do
   """
   @callback handle_flush(key :: any, counter :: integer) :: :ok
 
-
   @doc """
   Increments a given key in the buffer by the provided count.
-  
+
   Each key is scoped to the buffer module. So duplicate keys across different
   buffer modules will not cause issues.
 

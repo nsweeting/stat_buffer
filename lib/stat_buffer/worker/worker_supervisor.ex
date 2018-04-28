@@ -35,4 +35,3 @@ defmodule StatBuffer.WorkerSupervisor do
     workers
   end
 end
-

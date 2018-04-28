@@ -33,10 +33,10 @@ defmodule StatBuffer.MixProject do
       files: ["lib", "mix.exs", "README*"],
       maintainers: ["Nicholas Sweeting"],
       licenses: ["MIT"],
-      links:  %{"GitHub" => "https://github.com/nsweeting/stat_buffer"}
+      links: %{"GitHub" => "https://github.com/nsweeting/stat_buffer"}
     ]
   end
-  
+
   defp docs do
     [
       extras: ["README.md"],

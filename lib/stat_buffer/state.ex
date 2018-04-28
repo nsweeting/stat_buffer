@@ -10,10 +10,10 @@ defmodule StatBuffer.State do
   alias StatBuffer.State
 
   @type t :: %__MODULE__{
-    buffer: StatBuffer.t(),
-    key: any,
-    counter: integer
-  }
+          buffer: StatBuffer.t(),
+          key: any,
+          counter: integer
+        }
 
   @doc """
   Creates a new state struct.
