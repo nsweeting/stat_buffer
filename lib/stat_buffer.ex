@@ -70,9 +70,6 @@ defmodule StatBuffer do
 
   """
 
-
-  alias StatBuffer.Worker
-
   @doc """
   Callback for flushing a key for the buffer.
   
@@ -162,19 +159,19 @@ defmodule StatBuffer do
       end
 
       def increment(key, count \\ 1) do
-        Worker.increment(__MODULE__, key, count)
+        StatBuffer.Worker.increment(__MODULE__, key, count)
       end
 
       def async_increment(key, count \\ 1) do
-        Worker.async_increment(__MODULE__, key, count)
+        StatBuffer.Worker.async_increment(__MODULE__, key, count)
       end
 
       def flush(key) do
-        Worker.flush(__MODULE__, key)
+        StatBuffer.Worker.flush(__MODULE__, key)
       end
 
       def state(key) do
-        Worker.state(__MODULE__, key)
+        StatBuffer.Worker.state(__MODULE__, key)
       end
 
       def interval do
