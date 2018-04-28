@@ -7,7 +7,10 @@ defmodule StatBuffer.MixProject do
       version: "0.1.0",
       elixir: "~> 1.6",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package(),
+      docs: docs()
     ]
   end
 
@@ -16,6 +19,29 @@ defmodule StatBuffer.MixProject do
     [
       extra_applications: [:logger],
       mod: {StatBuffer.Application, []}
+    ]
+  end
+
+  defp description do
+    """
+    StatBuffer provides an efficient way to maintain local stat counts.
+    """
+  end
+
+  defp package do
+    [
+      files: ["lib", "mix.exs", "README*"],
+      maintainers: ["Nicholas Sweeting"],
+      licenses: ["MIT"],
+      links:  %{"GitHub" => "https://github.com/nsweeting/stat_buffer"}
+    ]
+  end
+  
+  defp docs do
+    [
+      extras: ["README.md"],
+      main: "readme",
+      source_url: "https://github.com/nsweeting/stat_buffer"
     ]
   end
 
