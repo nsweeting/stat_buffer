@@ -44,10 +44,10 @@ defmodule StatBuffer.WorkerServer do
     {:noreply, {state, true}, state.buffer.timeout()}
   end
 
-  def handle_info(:flush, {state, scheduled}) do
+  def handle_info(:flush, {state, _scheduled}) do
     Flusher.async_run(state)
     state = State.reset(state)
-    {:noreply, {state, scheduled}, state.buffer.timeout()}
+    {:noreply, {state, false}, state.buffer.timeout()}
   end
 
   def handle_info(:timeout, state) do
