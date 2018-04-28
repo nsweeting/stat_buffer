@@ -40,6 +40,8 @@ defmodule StatBuffer do
 
       Buffer.increment("mykey", 10) # increments by 10
 
+      Buffer.async_increment("mykey") # async increments by 1
+
   Each key counter is mainted in its own registered process. All keys are scoped
   to the given buffer module - so multiple buffers using the same keys will not
   cause issues.

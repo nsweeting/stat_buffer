@@ -47,6 +47,8 @@ With our buffer module defined, we can now increment key counters. A key can be 
 Buffer.increment("mykey") # increments by 1
 
 Buffer.increment("mykey", 10) # increments by 10
+
+Buffer.async_increment("mykey") # async increments by 1
 ```
 
 And we're done! Our counter will be flushed using our `handle_flush/2` callback
