@@ -2,9 +2,10 @@ defmodule StatBuffer do
   @moduledoc """
   Defines a stat buffer.
 
-  A stat buffer is an efficient way to maintain a local incrementable count
-  with a given key. In fast moving systems, this provides a scalable
-  way keep track of counts without putting heavy loads on a database.
+  A stat buffer is an efficient way to maintain a local incrementable count with a
+  given key that can later be flushed to persistent storage. In fast moving systems,
+  this provides a scalable way keep track of counts without putting heavy loads
+  on a database.
 
   Creating a buffer is as easy as:
 
@@ -42,7 +43,7 @@ defmodule StatBuffer do
 
       Buffer.async_increment("mykey") # async increments by 1
 
-  Each key counter is mainted in its own registered process. All keys are scoped
+  Each key counter is maintained in its own registered process. All keys are scoped
   to the given buffer module - so multiple buffers using the same keys will not
   cause issues.
 
@@ -53,10 +54,17 @@ defmodule StatBuffer do
 
   ## Options
 
-  A stat buffer comes with a few configurable options:
+  A stat buffer comes with a few configurable options. We can pass any of these
+  options along with the use macro.
+
+      use StatBuffer, intrerval: 60_000, jitter: 20_000
 
     * `:interval` - the time in milliseconds between the first increment for a
     given key and its next flush callback being invoked. Defaults to `5_000`.
+
+    * `:jitter` - a max time in milliseconds that will be added to `interval` to
+    ensure some randomness in each flush invocation. The time added would be
+    randomly selected between 0 and `jitter`. Defaults to `0`.
 
     * `:timeout` - the time in milliseconds between the last operation on a
     a given key, and the process being terminated. Defaults to `10_000`.
@@ -69,7 +77,6 @@ defmodule StatBuffer do
 
     * `:shutdown` - the `:shutdown` option used for the flush task. Please see
     `Task.Supervisor.start_child/2` for more details.
-
   """
 
   @doc """
@@ -118,7 +125,8 @@ defmodule StatBuffer do
   @callback state(key :: any) :: StatBuffer.State.t() | no_return()
 
   @doc """
-  The amount of time between buffer flush operations.
+  The amount of time between buffer flush operations. If specified in the
+  options, a jitter may be applied.
   """
   @callback interval :: integer
 
@@ -147,6 +155,7 @@ defmodule StatBuffer do
 
       defaults = [
         interval: 5_000,
+        jitter: 0,
         timeout: 10_000,
         backoff: 1_000,
         restart: :transient,
@@ -176,7 +185,11 @@ defmodule StatBuffer do
       end
 
       def interval do
-        @opts[:interval]
+        if @opts[:jitter] > 0 do
+          @opts[:interval] + :rand.uniform(@opts[:jitter])
+        else
+          @opts[:interval]
+        end
       end
 
       def timeout do

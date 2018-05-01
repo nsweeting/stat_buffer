@@ -6,7 +6,9 @@ defmodule StatBuffer.WorkerRegistry do
   def child_spec(_) do
     %{
       id: __MODULE__,
-      start: {Registry, :start_link, [[keys: :unique, name: __MODULE__]]}
+      start:
+        {Registry, :start_link,
+         [[keys: :unique, partitions: System.schedulers_online(), name: __MODULE__]]}
     }
   end
 

@@ -1,10 +1,12 @@
 defmodule StatBuffer.MixProject do
   use Mix.Project
 
+  @version "0.1.1"
+
   def project do
     [
       app: :stat_buffer,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.6",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -24,7 +26,7 @@ defmodule StatBuffer.MixProject do
 
   defp description do
     """
-    StatBuffer provides an efficient way to maintain local stat counts.
+    StatBuffer provides an efficient way to maintain persistable stat counts.
     """
   end
 
