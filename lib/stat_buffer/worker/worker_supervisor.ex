@@ -3,9 +3,6 @@ defmodule StatBuffer.WorkerSupervisor do
 
   use DynamicSupervisor
 
-  alias StatBuffer.State
-  alias StatBuffer.Worker
-
   def start_link(_arg) do
     DynamicSupervisor.start_link(__MODULE__, [], name: __MODULE__)
   end
@@ -15,7 +12,7 @@ defmodule StatBuffer.WorkerSupervisor do
   end
 
   def start_worker(buffer) do
-    DynamicSupervisor.start_child(__MODULE__, {Worker, buffer})
+    DynamicSupervisor.start_child(__MODULE__, {StatBuffer.Worker, buffer})
   end
 
   def reset do
