@@ -43,21 +43,20 @@ defmodule StatBuffer do
 
       Buffer.async_increment("mykey") # async increments by 1
 
-  Each key counter is maintained in its own registered process. All keys are scoped
-  to the given buffer module - so multiple buffers using the same keys will not
-  cause issues.
+  Key counts are maintained in an ETS table. All keys are scoped to the given
+  buffer module - so multiple buffers using the same keys will not cause issues.
 
   With the default buffer we setup above, the "mykey" counter will be flushed
-  after 5 seconds. Assuming no new operations occur on "mykey", the process
-  associated with that key will be terminated after 10 seconds. All of this
-  is configurable through the options below.
+  after 5 seconds. Assuming no new operations occur with our buffer, the process
+  will be placed into hibernation after 10 seconds. All of this is configurable
+  through the options below.
 
   ## Options
 
   A stat buffer comes with a few configurable options. We can pass any of these
   options along with the use macro.
 
-      use StatBuffer, intrerval: 60_000, jitter: 20_000
+      use StatBuffer, interval: 60_000, jitter: 20_000
 
     * `:interval` - the time in milliseconds between the first increment for a
     given key and its next flush callback being invoked. Defaults to `5_000`.
@@ -67,7 +66,7 @@ defmodule StatBuffer do
     randomly selected between 0 and `jitter`. Defaults to `0`.
 
     * `:timeout` - the time in milliseconds between the last operation on a
-    a given key, and the process being terminated. Defaults to `10_000`.
+    a buffer, and the process being hibernated. Defaults to `10_000`.
 
     * `:backoff` - the time in milliseconds between a `handle_flush/2` callback
     failing, and the next attempt occuring. Defaults to `1_000`.
@@ -78,6 +77,11 @@ defmodule StatBuffer do
     * `:shutdown` - the `:shutdown` option used for the flush task. Please see
     `Task.Supervisor.start_child/2` for more details.
   """
+
+  @doc """
+  Starts the buffer worker process. 
+  """
+  @callback start :: GenServer.on_start()
 
   @doc """
   Callback for flushing a key for the buffer.
@@ -122,7 +126,7 @@ defmodule StatBuffer do
   @doc """
   Returns the current state of a key from the buffer.
   """
-  @callback state(key :: any) :: StatBuffer.State.t() | no_return()
+  @callback count(key :: any) :: integer | nil | no_return()
 
   @doc """
   The amount of time between buffer flush operations. If specified in the
@@ -164,6 +168,10 @@ defmodule StatBuffer do
 
       @opts Keyword.merge(defaults, opts)
 
+      def start do
+        StatBuffer.WorkerSupervisor.start_worker(__MODULE__)
+      end
+
       def handle_flush(_key, _counter) do
         :ok
       end
@@ -180,8 +188,8 @@ defmodule StatBuffer do
         StatBuffer.Worker.flush(__MODULE__, key)
       end
 
-      def state(key) do
-        StatBuffer.Worker.state(__MODULE__, key)
+      def count(key) do
+        StatBuffer.Worker.count(__MODULE__, key)
       end
 
       def interval do

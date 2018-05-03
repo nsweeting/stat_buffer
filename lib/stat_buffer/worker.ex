@@ -1,24 +1,19 @@
 defmodule StatBuffer.Worker do
   @moduledoc false
 
-  alias StatBuffer.State
-  alias StatBuffer.WorkerRegistry
-  alias StatBuffer.WorkerSupervisor
-  alias StatBuffer.WorkerServer
-
   @doc """
   Starts a buffer worker process.
   """
-  @spec start_link(state :: StatBuffer.State.t()) :: GenServer.on_start()
-  def start_link(state) do
-    GenServer.start_link(WorkerServer, state, name: via_tuple(state))
+  @spec start_link(buffer :: StatBuffer.t()) :: GenServer.on_start()
+  def start_link(buffer) do
+    GenServer.start_link(StatBuffer.WorkerServer, buffer, name: via_tuple(buffer))
   end
 
   @doc false
-  def child_spec(state) do
+  def child_spec(buffer) do
     %{
       id: __MODULE__,
-      start: {__MODULE__, :start_link, [state]},
+      start: {__MODULE__, :start_link, [buffer]},
       restart: :transient
     }
   end
@@ -36,11 +31,7 @@ defmodule StatBuffer.Worker do
   def increment(buffer, key, count \\ 1)
 
   def increment(buffer, key, count) when is_integer(count) do
-    if WorkerRegistry.key_exists?(buffer, key) do
-      GenServer.call(via_tuple(buffer, key), {:increment, count})
-    else
-      new_worker(buffer, key, count)
-    end
+    GenServer.call(via_tuple(buffer), {:increment, key, count})
   end
 
   def increment(_buffer, _key, _count) do
@@ -54,11 +45,7 @@ defmodule StatBuffer.Worker do
   def async_increment(buffer, key, count \\ 1)
 
   def async_increment(buffer, key, count) when is_integer(count) do
-    if WorkerRegistry.key_exists?(buffer, key) do
-      GenServer.cast(via_tuple(buffer, key), {:increment, count})
-    else
-      new_worker(buffer, key, count)
-    end
+    GenServer.cast(via_tuple(buffer), {:increment, key, count})
   end
 
   def async_increment(_buffer, _key, _count) do
@@ -75,34 +62,23 @@ defmodule StatBuffer.Worker do
   """
   @spec flush(buffer :: StatBuffer.t(), key :: any) :: :ok | no_return
   def flush(buffer, key) do
-    GenServer.call(via_tuple(buffer, key), :flush)
+    GenServer.call(via_tuple(buffer), {:flush, key})
   end
 
   @doc """
-  Returns the current state of a buffers key.
+  Returns the current count of a buffers key.
 
   ## Parameters
 
     - buffer: A buffer module.
     - key: Any valid term.
   """
-  @spec state(buffer :: StatBuffer.t(), key :: any) :: StatBuffer.State.t() | no_return
-  def state(buffer, key) do
-    GenServer.call(via_tuple(buffer, key), :state)
+  @spec count(buffer :: StatBuffer.t(), key :: any) :: integer | nil | no_return
+  def count(buffer, key) do
+    GenServer.call(via_tuple(buffer), {:count, key})
   end
 
-  defp new_worker(buffer, key, count) do
-    case WorkerSupervisor.start_worker(buffer, key, count) do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> increment(buffer, key, count)
-    end
-  end
-
-  defp via_tuple(%State{buffer: buffer, key: key}) do
-    via_tuple(buffer, key)
-  end
-
-  defp via_tuple(buffer, key) do
-    {:via, Registry, {StatBuffer.WorkerRegistry, {buffer, key}}}
+  defp via_tuple(buffer) do
+    {:via, Registry, {StatBuffer.WorkerRegistry, buffer}}
   end
 end

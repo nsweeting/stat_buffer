@@ -5,62 +5,77 @@ defmodule StatBuffer.WorkerServer do
 
   alias StatBuffer.WorkerRegistry
   alias StatBuffer.Flusher
-  alias StatBuffer.State
 
-  def init(state) do
-    schedule_flush(state)
-    {:ok, {state, true}, state.buffer.timeout()}
+  def init(buffer) do
+    do_table_init(buffer)
+    {:ok, buffer, buffer.timeout()}
   end
 
-  def handle_call(:state, _from, {state, scheduled}) do
-    {:reply, state, {state, scheduled}, state.buffer.timeout()}
+  def handle_call({:flush, key}, _from, buffer) do
+    do_flush(buffer, key)
+    {:reply, :ok, buffer, buffer.timeout()}
   end
 
-  def handle_call(:flush, _from, {state, scheduled}) do
-    Flusher.async_run(state)
-    state = State.reset(state)
-    {:reply, :ok, {state, scheduled}, state.buffer.timeout()}
+  def handle_call({:count, key}, _from, buffer) do
+    count = do_lookup(buffer, key)
+    {:reply, count, buffer, buffer.timeout()}
   end
 
-  def handle_call({:increment, count}, _from, {state, false}) do
-    schedule_flush(state)
-    state = State.increment(state, count)
-    {:reply, :ok, {state, true}, state.buffer.timeout()}
+  def handle_call({:increment, key, count}, _from, buffer) do
+    do_increment(buffer, key, count)
+    {:reply, :ok, buffer, buffer.timeout()}
   end
 
-  def handle_call({:increment, count}, _from, {state, true}) do
-    state = State.increment(state, count)
-    {:reply, :ok, {state, true}, state.buffer.timeout()}
+  def handle_cast({:increment, key, count}, buffer) do
+    do_increment(buffer, key, count)
+    {:noreply, buffer, buffer.timeout()}
   end
 
-  def handle_cast({:increment, count}, {state, false}) do
-    schedule_flush(state)
-    state = State.increment(state, count)
-    {:noreply, {state, true}, state.buffer.timeout()}
+  def handle_info({:flush, key}, buffer) do
+    do_flush(buffer, key)
+    {:noreply, buffer, buffer.timeout()}
   end
 
-  def handle_cast({:increment, count}, {state, true}) do
-    state = State.increment(state, count)
-    {:noreply, {state, true}, state.buffer.timeout()}
+  def handle_info(:timeout, buffer) do
+    {:noreply, buffer, :hibernate}
   end
 
-  def handle_info(:flush, {state, _scheduled}) do
-    Flusher.async_run(state)
-    state = State.reset(state)
-    {:noreply, {state, false}, state.buffer.timeout()}
+  def terminate(_reason, buffer) do
+    buffer
+    |> :ets.tab2list
+    |> Enum.each(fn({key, count}) ->
+      Flusher.async_run(buffer, key, count)
+    end)
+    WorkerRegistry.remove(buffer)
+    buffer
   end
 
-  def handle_info(:timeout, state) do
-    {:stop, :normal, state}
+  defp do_increment(buffer, key, count) do
+    if :ets.update_counter(buffer, key, count, {0, 0}) == count do
+      Process.send_after(self(), {:flush, key}, buffer.interval())
+    end
   end
 
-  def terminate(_reason, {state, _scheduled}) do
-    Flusher.async_run(state)
-    WorkerRegistry.remove_key(state)
-    state
+  defp do_lookup(buffer, key) do
+    case :ets.lookup(buffer, key) do
+      [{^key, count}] -> count
+      _ -> nil
+    end
   end
 
-  defp schedule_flush(state) do
-    Process.send_after(self(), :flush, state.buffer.interval())
+  defp do_flush(buffer, key) do
+    case do_lookup(buffer, key) do
+      nil -> :error
+      count -> 
+        :ets.delete(buffer, key)
+        Flusher.async_run(buffer, key, count)
+    end
+  end
+
+  def do_table_init(buffer) do
+    case :ets.info(buffer) do
+      :undefined -> :ets.new(buffer, [:public, :named_table])
+      _ -> buffer
+    end
   end
 end

@@ -14,13 +14,8 @@ defmodule StatBuffer.WorkerSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_worker(%State{} = state) do
-    DynamicSupervisor.start_child(__MODULE__, {Worker, state})
-  end
-
-  def start_worker(buffer, key, count) do
-    state = State.new(buffer, key, count)
-    start_worker(state)
+  def start_worker(buffer) do
+    DynamicSupervisor.start_child(__MODULE__, {Worker, buffer})
   end
 
   def reset do

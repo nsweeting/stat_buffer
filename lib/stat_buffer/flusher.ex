@@ -1,8 +1,6 @@
 defmodule StatBuffer.Flusher do
   @moduledoc false
 
-  alias StatBuffer.State
-
   def child_spec(_) do
     %{
       id: __MODULE__,
@@ -18,20 +16,20 @@ defmodule StatBuffer.Flusher do
 
   ## Parameters
 
-    - state: A state struct.
+    - buffer: A state struct.
   """
-  @spec run(state :: StatBuffer.State.t()) :: :ok | no_return
-  def run(%State{counter: 0}) do
+  @spec run(buffer :: StatBuffer.t(), key :: any, count :: integer) :: :ok | no_return
+  def run(_buffer, _key, 0) do
     :ok
   end
 
-  def run(%State{} = state) do
-    case apply(state.buffer, :handle_flush, [state.key, state.counter]) do
+  def run(buffer, key, count) do
+    case apply(buffer, :handle_flush, [key, count]) do
       :ok ->
         :ok
 
       _ ->
-        state.buffer.backoff() |> :timer.sleep()
+        buffer.backoff() |> :timer.sleep()
         raise StatBuffer.Error, "buffer flush failed "
     end
   end
@@ -44,7 +42,7 @@ defmodule StatBuffer.Flusher do
 
   Please see `run/1` for further details.
   """
-  def async_run(%State{} = state) do
-    Task.Supervisor.start_child(__MODULE__, __MODULE__, :run, [state], state.buffer.task_opts())
+  def async_run(buffer, key, count) do
+    Task.Supervisor.start_child(__MODULE__, __MODULE__, :run, [buffer, key, count], buffer.task_opts())
   end
 end
