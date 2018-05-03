@@ -40,16 +40,6 @@ defmodule StatBuffer.WorkerServer do
     {:noreply, buffer, :hibernate}
   end
 
-  def terminate(_reason, buffer) do
-    buffer
-    |> :ets.tab2list
-    |> Enum.each(fn({key, count}) ->
-      Flusher.async_run(buffer, key, count)
-    end)
-    WorkerRegistry.remove(buffer)
-    buffer
-  end
-
   defp do_increment(buffer, key, count) do
     if :ets.update_counter(buffer, key, count, {0, 0}) == count do
       Process.send_after(self(), {:flush, key}, buffer.interval())
