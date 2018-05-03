@@ -34,8 +34,12 @@ defmodule StatBuffer do
 
   ## Usage
 
-  With our buffer module defined, we can now increment key counters. A key can
-  be any valid term.
+  Before using our buffer, we must start it.
+
+      Buffer.start()
+
+  With our buffer started, we can now increment key counters. A key can be any
+  valid term.
 
       Buffer.increment("mykey") # increments by 1
 
@@ -79,7 +83,7 @@ defmodule StatBuffer do
   """
 
   @doc """
-  Starts the buffer worker process. 
+  Starts the buffer process. 
   """
   @callback start :: GenServer.on_start()
 

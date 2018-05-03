@@ -12,7 +12,7 @@ The package can be installed by adding `stat_buffer` to your list of dependencie
 ```elixir
 def deps do
   [
-    {:stat_buffer, "~> 0.1.1"}
+    {:stat_buffer, "~> 0.1.2"}
   ]
 end
 ```
@@ -39,13 +39,19 @@ defmodule Buffer do
 end
 ```
 
+We must now start our buffer process.
+
+```elixir
+  Buffer.start()
+```
+
 There are some configruable options available for our buffers. You can read more about them [here](https://hexdocs.pm/stat_buffer/StatBuffer.html#module-options). These options can be passed when creating our buffer.
 
 ```elixir
   use StatBuffer, interval: 10_000
 ```
 
-With our buffer module defined, we can now increment key counters. A key can be any valid term.
+With our buffer started, we can now increment key counters. A key can be any valid term.
 
 ```elixir
 Buffer.increment("mykey") # increments by 1
