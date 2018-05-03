@@ -219,4 +219,9 @@ defmodule StatBuffer do
       defoverridable StatBuffer
     end
   end
+
+  def reset do
+    StatBuffer.WorkerSupervisor.reset()
+    StatBuffer.Flusher.reset()
+  end
 end

@@ -45,4 +45,10 @@ defmodule StatBuffer.Flusher do
   def async_run(buffer, key, count) do
     Task.Supervisor.start_child(__MODULE__, __MODULE__, :run, [buffer, key, count], buffer.task_opts())
   end
+
+  def reset do
+    for pid <- Task.Supervisor.children(__MODULE__) do
+      Task.Supervisor.terminate_child(__MODULE__, pid)
+    end
+  end
 end

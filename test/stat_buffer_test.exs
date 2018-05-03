@@ -22,7 +22,7 @@ defmodule StatBufferTest do
   end
 
   setup do
-    StatBuffer.WorkerSupervisor.reset()
+    StatBuffer.reset()
     :ok
   end
 
