@@ -3,9 +3,6 @@ defmodule StatBuffer.WorkerServer do
 
   use GenServer
 
-  alias StatBuffer.WorkerRegistry
-  alias StatBuffer.Flusher
-
   def init(buffer) do
     do_table_init(buffer)
     {:ok, buffer, buffer.timeout()}
@@ -58,7 +55,7 @@ defmodule StatBuffer.WorkerServer do
       nil -> :error
       count -> 
         :ets.delete(buffer, key)
-        Flusher.async_run(buffer, key, count)
+        StatBuffer.Flusher.async_run(buffer, key, count)
     end
   end
 
