@@ -3,6 +3,8 @@ defmodule StatBuffer.WorkerServer do
 
   use GenServer
 
+  alias :ets, as: ETS
+
   def init(buffer) do
     do_table_init(buffer)
     {:ok, buffer, buffer.timeout()}
@@ -38,29 +40,27 @@ defmodule StatBuffer.WorkerServer do
   end
 
   defp do_increment(buffer, key, count) do
-    if :ets.update_counter(buffer, key, count, {0, 0}) == count do
+    if ETS.update_counter(buffer, key, count, {0, 0}) == count do
       Process.send_after(self(), {:flush, key}, buffer.interval())
     end
   end
 
   defp do_lookup(buffer, key) do
-    case :ets.lookup(buffer, key) do
+    case ETS.lookup(buffer, key) do
       [{^key, count}] -> count
       _ -> nil
     end
   end
 
   defp do_flush(buffer, key) do
-    case do_lookup(buffer, key) do
-      nil -> :error
-      count -> 
-        :ets.delete(buffer, key)
-        StatBuffer.Flusher.async_run(buffer, key, count)
+    case ETS.take(buffer, key) do
+      [{^key, count}] -> StatBuffer.Flusher.async_run(buffer, key, count)
+      _ -> :error
     end
   end
 
   def do_table_init(buffer) do
-    case :ets.info(buffer) do
+    case ETS.info(buffer) do
       :undefined -> :ets.new(buffer, [:public, :named_table])
       _ -> buffer
     end

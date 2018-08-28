@@ -18,7 +18,7 @@ defmodule StatBuffer.Flusher do
 
     - buffer: A state struct.
   """
-  @spec run(buffer :: StatBuffer.t(), key :: any, count :: integer) :: :ok | no_return
+  @spec run(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | no_return
   def run(_buffer, _key, 0) do
     :ok
   end

@@ -27,7 +27,7 @@ defmodule StatBuffer.Worker do
     - key: Any valid term.
     - count: An integer count. Defaults to 1.
   """
-  @spec increment(buffer :: StatBuffer.t(), key :: any, count :: integer) :: :ok | no_return
+  @spec increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | no_return()
   def increment(buffer, key, count \\ 1)
 
   def increment(buffer, key, count) when is_integer(count) do
@@ -41,7 +41,7 @@ defmodule StatBuffer.Worker do
   @doc """
   Same as `increment/3` except performs the operation asynchronously.
   """
-  @spec async_increment(buffer :: StatBuffer.t(), key :: any, count :: integer) :: :ok | no_return
+  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | no_return()
   def async_increment(buffer, key, count \\ 1)
 
   def async_increment(buffer, key, count) when is_integer(count) do
@@ -60,7 +60,7 @@ defmodule StatBuffer.Worker do
     - buffer: A buffer module.
     - key: Any valid term.
   """
-  @spec flush(buffer :: StatBuffer.t(), key :: any) :: :ok | no_return
+  @spec flush(buffer :: StatBuffer.t(), key :: any()) :: :ok | no_return()
   def flush(buffer, key) do
     GenServer.call(via_tuple(buffer), {:flush, key})
   end
@@ -73,7 +73,7 @@ defmodule StatBuffer.Worker do
     - buffer: A buffer module.
     - key: Any valid term.
   """
-  @spec count(buffer :: StatBuffer.t(), key :: any) :: integer | nil | no_return
+  @spec count(buffer :: StatBuffer.t(), key :: any()) :: integer() | nil | no_return()
   def count(buffer, key) do
     GenServer.call(via_tuple(buffer), {:count, key})
   end

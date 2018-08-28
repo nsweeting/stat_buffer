@@ -83,7 +83,7 @@ defmodule StatBuffer do
   """
 
   @doc """
-  Starts the buffer process. 
+  Starts the buffer process.
   """
   @callback start :: GenServer.on_start()
 
@@ -102,7 +102,7 @@ defmodule StatBuffer do
     - key: Any valid term.
     - counter: An integer counter.
   """
-  @callback handle_flush(key :: any, counter :: integer) :: :ok
+  @callback handle_flush(key :: any(), counter :: integer()) :: :ok
 
   @doc """
   Increments a given key in the buffer by the provided count.
@@ -115,45 +115,45 @@ defmodule StatBuffer do
     - key: Any valid term.
     - count: An integer count. Defaults to 1.
   """
-  @callback increment(key :: any, count :: integer) :: :ok
+  @callback increment(key :: any(), count :: integer()) :: :ok
 
   @doc """
   Same as `increment/2` except performs the operation asynchronously.
   """
-  @callback async_increment(key :: any, count :: integer) :: :ok
+  @callback async_increment(key :: any(), count :: integer()) :: :ok
 
   @doc """
   Asynchronously flushes a given key from the buffer.
   """
-  @callback flush(key :: any) :: :ok | no_return()
+  @callback flush(key :: any()) :: :ok | no_return()
 
   @doc """
   Returns the current state of a key from the buffer.
   """
-  @callback count(key :: any) :: integer | nil | no_return()
+  @callback count(key :: any()) :: integer() | nil | no_return()
 
   @doc """
   The amount of time between buffer flush operations. If specified in the
   options, a jitter may be applied.
   """
-  @callback interval :: integer
+  @callback interval :: integer()
 
   @doc """
   The amount of time that a buffer key process will remain without recieving
   work before shutting down.
   """
-  @callback timeout :: integer
+  @callback timeout :: integer()
 
   @doc """
   The amount of time that will be applied between failed key flush attempts.
   """
-  @callback backoff :: integer
+  @callback backoff :: integer()
 
   @doc """
   The options that will be used when a supervised Task is started to flush
   the buffer.
   """
-  @callback task_opts :: list
+  @callback task_opts :: keyword()
 
   @type t :: module
 
@@ -170,7 +170,14 @@ defmodule StatBuffer do
         shutdown: :brutal_kill
       ]
 
-      @opts Keyword.merge(defaults, opts)
+      opts = Keyword.merge(defaults, opts)
+
+      @jitter opts[:jitter]
+      @interval opts[:interval]
+      @timeout opts[:timeout]
+      @backoff opts[:backoff]
+      @restart opts[:restart]
+      @task_opts [restart: opts[:restart], shutdown: opts[:shutdown]]
 
       def start do
         StatBuffer.WorkerSupervisor.start_worker(__MODULE__)
@@ -196,24 +203,26 @@ defmodule StatBuffer do
         StatBuffer.Worker.count(__MODULE__, key)
       end
 
-      def interval do
-        if @opts[:jitter] > 0 do
-          @opts[:interval] + :rand.uniform(@opts[:jitter])
-        else
-          @opts[:interval]
+      if @jitter > 0 do
+        def interval do
+          @interval + :rand.uniform(@jitter)
+        end
+      else
+        def interval do
+          @interval
         end
       end
 
       def timeout do
-        @opts[:timeout]
+        @timeout
       end
 
       def backoff do
-        @opts[:backoff]
+        @backoff
       end
 
       def task_opts do
-        [restart: @opts[:restart], shutdown: @opts[:shutdown]]
+        @task_opts
       end
 
       defoverridable StatBuffer
