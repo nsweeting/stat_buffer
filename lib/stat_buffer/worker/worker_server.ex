@@ -5,11 +5,15 @@ defmodule StatBuffer.WorkerServer do
 
   alias :ets, as: ETS
 
+  @doc false
+  @impl true
   def init(buffer) do
     do_table_init(buffer)
     {:ok, buffer, buffer.timeout()}
   end
 
+  @doc false
+  @impl true
   def handle_call({:flush, key}, _from, buffer) do
     do_flush(buffer, key)
     {:reply, :ok, buffer, buffer.timeout()}
@@ -25,6 +29,8 @@ defmodule StatBuffer.WorkerServer do
     {:reply, :ok, buffer, buffer.timeout()}
   end
 
+  @doc false
+  @impl true
   def handle_cast({:increment, key, count}, buffer) do
     do_increment(buffer, key, count)
     {:noreply, buffer, buffer.timeout()}
@@ -35,6 +41,8 @@ defmodule StatBuffer.WorkerServer do
     {:noreply, buffer, buffer.timeout()}
   end
 
+  @doc false
+  @impl true
   def handle_info(:timeout, buffer) do
     {:noreply, buffer, :hibernate}
   end
@@ -59,7 +67,7 @@ defmodule StatBuffer.WorkerServer do
     end
   end
 
-  def do_table_init(buffer) do
+  defp do_table_init(buffer) do
     case ETS.info(buffer) do
       :undefined -> :ets.new(buffer, [:public, :named_table])
       _ -> buffer
