@@ -179,48 +179,59 @@ defmodule StatBuffer do
       @restart opts[:restart]
       @task_opts [restart: opts[:restart], shutdown: opts[:shutdown]]
 
+      @impl StatBuffer
       def start do
         StatBuffer.WorkerSupervisor.start_worker(__MODULE__)
       end
 
+      @impl StatBuffer
       def handle_flush(_key, _counter) do
         :ok
       end
 
+      @impl StatBuffer
       def increment(key, count \\ 1) do
         StatBuffer.Worker.increment(__MODULE__, key, count)
       end
 
+      @impl StatBuffer
       def async_increment(key, count \\ 1) do
         StatBuffer.Worker.async_increment(__MODULE__, key, count)
       end
 
+      @impl StatBuffer
       def flush(key) do
         StatBuffer.Worker.flush(__MODULE__, key)
       end
 
+      @impl StatBuffer
       def count(key) do
         StatBuffer.Worker.count(__MODULE__, key)
       end
 
       if @jitter > 0 do
+        @impl StatBuffer
         def interval do
           @interval + :rand.uniform(@jitter)
         end
       else
+        @impl StatBuffer
         def interval do
           @interval
         end
       end
 
+      @impl StatBuffer
       def timeout do
         @timeout
       end
 
+      @impl StatBuffer
       def backoff do
         @backoff
       end
 
+      @impl StatBuffer
       def task_opts do
         @task_opts
       end
@@ -229,8 +240,11 @@ defmodule StatBuffer do
     end
   end
 
+  @spec reset() :: :ok
   def reset do
     StatBuffer.WorkerSupervisor.reset()
     StatBuffer.Flusher.reset()
+
+    :ok
   end
 end

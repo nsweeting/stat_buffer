@@ -3,6 +3,11 @@ defmodule StatBufferTest do
 
   defmodule TestBufferOne do
     use StatBuffer, interval: 1_000
+
+    def handle_flush(key, count) do
+      :timer.sleep(20_000)
+      IO.inspect([key, count])
+    end
   end
 
   defmodule TestBufferTwo do
@@ -18,6 +23,10 @@ defmodule StatBufferTest do
   end
 
   defmodule TestBufferFour do
+    use StatBuffer, timeout: 100
+  end
+
+  defmodule TestBufferFive do
     use StatBuffer, timeout: 100
   end
 
@@ -67,7 +76,7 @@ defmodule StatBufferTest do
 
     test "maintains a proper stat count for a single key with concurrency" do
       TestBufferOne.start()
-  
+
       for _ <- 1..10_000 do
         spawn(fn -> TestBufferOne.async_increment("foo", 1) end)
       end
@@ -102,6 +111,10 @@ defmodule StatBufferTest do
       :timer.sleep(200)
       info = Process.info(pid)
       assert info[:current_function] == {:erlang, :hibernate, 3}
+    end
+
+    test "will return :error if the process isnt alive" do
+      assert :error = TestBufferFive.increment("foo")
     end
   end
 

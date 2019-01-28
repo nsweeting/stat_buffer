@@ -5,10 +5,10 @@ defmodule StatBuffer.Application do
 
   use Application
 
+  @spec start(any(), any()) :: {:error, any()} | {:ok, pid()}
   def start(_type, _args) do
     children = [
       {StatBuffer.WorkerSupervisor, []},
-      {StatBuffer.WorkerRegistry, []},
       {StatBuffer.Flusher, []}
     ]
 

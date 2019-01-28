@@ -1,6 +1,7 @@
 defmodule StatBuffer.Flusher do
   @moduledoc false
 
+  @doc false
   def child_spec(_) do
     %{
       id: __MODULE__,
@@ -13,10 +14,6 @@ defmodule StatBuffer.Flusher do
 
   If the given key has a counter of 0 - this becomes a noop. Otherwise, the
   states buffer modules `handle_flush/2` callback will be called.
-
-  ## Parameters
-
-    - buffer: A state struct.
   """
   @spec run(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | no_return
   def run(_buffer, _key, 0) do
@@ -42,13 +39,24 @@ defmodule StatBuffer.Flusher do
 
   Please see `run/1` for further details.
   """
+  @spec async_run(buffer :: StatBuffer.t(), key :: any(), count :: integer()) ::
+          DynamicSupervisor.on_start_child()
   def async_run(buffer, key, count) do
-    Task.Supervisor.start_child(__MODULE__, __MODULE__, :run, [buffer, key, count], buffer.task_opts())
+    Task.Supervisor.start_child(
+      __MODULE__,
+      __MODULE__,
+      :run,
+      [buffer, key, count],
+      buffer.task_opts()
+    )
   end
 
+  @spec reset() :: :ok
   def reset do
     for pid <- Task.Supervisor.children(__MODULE__) do
       Task.Supervisor.terminate_child(__MODULE__, pid)
     end
+
+    :ok
   end
 end
