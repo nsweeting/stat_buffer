@@ -12,7 +12,7 @@ The package can be installed by adding `stat_buffer` to your list of dependencie
 ```elixir
 def deps do
   [
-    {:stat_buffer, "~> 0.1.4"}
+    {:stat_buffer, "~> 0.2.0"}
   ]
 end
 ```
