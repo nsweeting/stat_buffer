@@ -12,7 +12,7 @@ The package can be installed by adding `stat_buffer` to your list of dependencie
 ```elixir
 def deps do
   [
-    {:stat_buffer, "~> 0.2.0"}
+    {:stat_buffer, "~> 0.3.0"}
   ]
 end
 ```
@@ -63,3 +63,16 @@ Buffer.async_increment("mykey") # async increments by 1
 
 And we're done! Our counter will be flushed using our `handle_flush/2` callback
 after the default interval period. Dead counters are automatically removed.
+
+## Buffer Autostart
+
+We can also start our buffers automatically by adding them to the application config.
+
+```elixir
+config :stat_buffer, buffers: [
+    MyBufferOne
+    MyBufferTwo
+  ]
+```
+
+Now, when the `stat_buffer` application starts - your buffers will also be started.
