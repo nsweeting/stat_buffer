@@ -80,6 +80,18 @@ defmodule StatBuffer do
 
     * `:shutdown` - the `:shutdown` option used for the flush task. Please see
     `Task.Supervisor.start_child/2` for more details.
+
+  ## Autostart
+
+  We can start our buffers automatically by adding them to the application config.
+
+      config :stat_buffer, buffers: [
+          MyBufferOne
+          MyBufferTwo
+        ]
+
+  Now, when the `stat_buffer` application starts - your buffers will also be started.
+
   """
 
   @doc """
