@@ -9,7 +9,7 @@ defmodule StatBuffer.WorkerSupervisor do
   end
 
   @doc false
-  @impl true
+  @impl DynamicSupervisor
   def init(_arg) do
     DynamicSupervisor.init(strategy: :one_for_one)
   end

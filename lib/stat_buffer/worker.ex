@@ -1,7 +1,15 @@
 defmodule StatBuffer.Worker do
   @moduledoc false
 
+  use GenServer
+
   require Logger
+
+  alias :ets, as: ETS
+
+  ################################
+  # Public API
+  ################################
 
   @doc false
   def child_spec(buffer) do
@@ -17,7 +25,7 @@ defmodule StatBuffer.Worker do
   """
   @spec start_link(buffer :: StatBuffer.t()) :: GenServer.on_start()
   def start_link(buffer) do
-    GenServer.start_link(StatBuffer.WorkerServer, buffer, name: buffer)
+    GenServer.start_link(__MODULE__, buffer, name: buffer)
   end
 
   @doc """
@@ -61,5 +69,82 @@ defmodule StatBuffer.Worker do
   @spec count(buffer :: StatBuffer.t(), key :: any()) :: integer() | nil | no_return()
   def count(buffer, key) do
     GenServer.call(buffer, {:count, key})
+  end
+
+  ################################
+  # GenServer Callbacks
+  ################################
+
+  @doc false
+  @impl GenServer
+  def init(buffer) do
+    do_table_init(buffer)
+    {:ok, buffer, buffer.timeout()}
+  end
+
+  @doc false
+  @impl GenServer
+  def handle_call({:flush, key}, _from, buffer) do
+    do_flush(buffer, key)
+    {:reply, :ok, buffer, buffer.timeout()}
+  end
+
+  def handle_call({:count, key}, _from, buffer) do
+    count = do_lookup(buffer, key)
+    {:reply, count, buffer, buffer.timeout()}
+  end
+
+  def handle_call({:increment, key, count}, _from, buffer) do
+    do_increment(buffer, key, count)
+    {:reply, :ok, buffer, buffer.timeout()}
+  end
+
+  @doc false
+  @impl GenServer
+  def handle_cast({:increment, key, count}, buffer) do
+    do_increment(buffer, key, count)
+    {:noreply, buffer, buffer.timeout()}
+  end
+
+  def handle_info({:flush, key}, buffer) do
+    do_flush(buffer, key)
+    {:noreply, buffer, buffer.timeout()}
+  end
+
+  @doc false
+  @impl GenServer
+  def handle_info(:timeout, buffer) do
+    {:noreply, buffer, :hibernate}
+  end
+
+  ################################
+  # Private Functions
+  ################################
+
+  defp do_increment(buffer, key, count) do
+    if ETS.update_counter(buffer, key, count, {0, 0}) == count do
+      Process.send_after(self(), {:flush, key}, buffer.interval())
+    end
+  end
+
+  defp do_lookup(buffer, key) do
+    case ETS.lookup(buffer, key) do
+      [{^key, count}] -> count
+      _ -> nil
+    end
+  end
+
+  defp do_flush(buffer, key) do
+    case ETS.take(buffer, key) do
+      [{^key, count}] -> StatBuffer.Flusher.async_run(buffer, key, count)
+      _ -> :error
+    end
+  end
+
+  defp do_table_init(buffer) do
+    case ETS.info(buffer) do
+      :undefined -> :ets.new(buffer, [:public, :named_table])
+      _ -> buffer
+    end
   end
 end

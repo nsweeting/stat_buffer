@@ -115,7 +115,7 @@ defmodule StatBuffer do
     - key: Any valid term.
     - count: An integer count. Defaults to 1.
   """
-  @callback increment(key :: any(), count :: integer()) :: :ok
+  @callback increment(key :: any(), count :: integer()) :: :ok | :error
 
   @doc """
   Same as `increment/2` except performs the operation asynchronously.
@@ -125,7 +125,7 @@ defmodule StatBuffer do
   @doc """
   Asynchronously flushes a given key from the buffer.
   """
-  @callback flush(key :: any()) :: :ok | no_return()
+  @callback flush(key :: any()) :: :ok
 
   @doc """
   Returns the current state of a key from the buffer.
