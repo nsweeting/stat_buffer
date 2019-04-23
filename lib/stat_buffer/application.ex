@@ -8,8 +8,9 @@ defmodule StatBuffer.Application do
   @spec start(any(), any()) :: {:error, any()} | {:ok, pid()}
   def start(_type, _args) do
     children = [
-      {StatBuffer.WorkerSupervisor, []},
-      {StatBuffer.Flusher, []}
+      StatBuffer.WorkerSupervisor,
+      StatBuffer.Flusher,
+      StatBuffer.Initializer
     ]
 
     opts = [strategy: :one_for_one, name: StatBuffer.Supervisor]
