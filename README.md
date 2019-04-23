@@ -21,7 +21,7 @@ end
 
 Please see [HexDocs](https://hexdocs.pm/stat_buffer/StatBuffer.html#content) for additional documentation. This readme provides a brief overview, but it is recommended that the docs are used.
 
-## Creating a buffer
+## Creating a Buffer
 
 We can start off by creating our buffer. This is simply a module that uses `StatBuffer`
 and implements the `handle_flush/2` callback.
