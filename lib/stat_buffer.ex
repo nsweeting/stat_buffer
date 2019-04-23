@@ -252,11 +252,12 @@ defmodule StatBuffer do
     end
   end
 
-  @spec reset() :: :ok
+  @doc """
+  Stops and restarts the `:stat_buffer` application.
+  """
+  @spec reset() :: :ok | {:error, term()}
   def reset do
-    StatBuffer.WorkerSupervisor.reset()
-    StatBuffer.Flusher.reset()
-
-    :ok
+    Application.stop(:stat_buffer)
+    Application.start(:stat_buffer)
   end
 end

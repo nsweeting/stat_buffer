@@ -47,8 +47,7 @@ defmodule StatBuffer.Worker do
   @doc """
   Same as `increment/3` except performs the operation asynchronously.
   """
-  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) ::
-          :ok | no_return()
+  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok
   def async_increment(buffer, key, count \\ 1)
 
   def async_increment(buffer, key, count) when is_integer(count) do
@@ -58,7 +57,7 @@ defmodule StatBuffer.Worker do
   @doc """
   Asynchronously flushes a buffers key.
   """
-  @spec flush(buffer :: StatBuffer.t(), key :: any()) :: :ok | no_return()
+  @spec flush(buffer :: StatBuffer.t(), key :: any()) :: :ok
   def flush(buffer, key) do
     GenServer.call(buffer, {:flush, key})
   end
@@ -66,9 +65,9 @@ defmodule StatBuffer.Worker do
   @doc """
   Returns the current count of a buffers key.
   """
-  @spec count(buffer :: StatBuffer.t(), key :: any()) :: integer() | nil | no_return()
+  @spec count(buffer :: StatBuffer.t(), key :: any()) :: integer() | nil
   def count(buffer, key) do
-    GenServer.call(buffer, {:count, key})
+    do_lookup(buffer, key)
   end
 
   ################################
@@ -143,7 +142,7 @@ defmodule StatBuffer.Worker do
 
   defp do_table_init(buffer) do
     case ETS.info(buffer) do
-      :undefined -> :ets.new(buffer, [:public, :named_table])
+      :undefined -> :ets.new(buffer, [:public, :named_table, read_concurrency: true])
       _ -> buffer
     end
   end
