@@ -3,6 +3,10 @@ defmodule StatBuffer.Initializer do
 
   use GenServer
 
+  ################################
+  # Public API
+  ################################
+
   @doc false
   def child_spec(buffers) do
     %{
@@ -19,6 +23,10 @@ defmodule StatBuffer.Initializer do
     GenServer.start_link(__MODULE__, buffers)
   end
 
+  ################################
+  # GenServer Callbacks
+  ################################
+
   @doc false
   @impl GenServer
   def init(buffers) do
@@ -26,6 +34,10 @@ defmodule StatBuffer.Initializer do
     buffers = buffers ++ app_buffers
     do_start_buffers(buffers)
   end
+
+  ################################
+  # Private Functions
+  ################################
 
   defp do_start_buffers([]) do
     :ignore

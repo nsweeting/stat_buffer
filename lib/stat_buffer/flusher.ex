@@ -1,6 +1,10 @@
 defmodule StatBuffer.Flusher do
   @moduledoc false
 
+  ################################
+  # Public API
+  ################################
+
   @doc false
   def child_spec(_) do
     %{
@@ -49,14 +53,5 @@ defmodule StatBuffer.Flusher do
       [buffer, key, count],
       buffer.task_opts()
     )
-  end
-
-  @spec reset() :: :ok
-  def reset do
-    for pid <- Task.Supervisor.children(__MODULE__) do
-      Task.Supervisor.terminate_child(__MODULE__, pid)
-    end
-
-    :ok
   end
 end
