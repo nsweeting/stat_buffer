@@ -1,7 +1,7 @@
 defmodule StatBuffer.MixProject do
   use Mix.Project
 
-  @version "0.4.0"
+  @version "0.5.0"
 
   def project do
     [
@@ -20,8 +20,7 @@ defmodule StatBuffer.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {StatBuffer.Application, []}
+      extra_applications: [:logger]
     ]
   end
 

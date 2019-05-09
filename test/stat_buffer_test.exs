@@ -12,6 +12,12 @@ defmodule StatBufferTest do
 
   defmodule TestBufferTwo do
     use StatBuffer, interval: 1_000
+
+    def handle_flush(key, count) do
+      IO.inspect([key, count])
+
+      :ok
+    end
   end
 
   defmodule TestBufferThree do
@@ -30,44 +36,39 @@ defmodule StatBufferTest do
     use StatBuffer, timeout: 100
   end
 
-  setup do
-    StatBuffer.reset()
-    :ok
-  end
-
   describe "increment/2" do
     test "accepts a binary as a key" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment("foo", 1)
       assert_key_exists(TestBufferOne, "foo")
     end
 
     test "accepts a tuple as a key" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment({"foo", "bar"}, 1)
       assert_key_exists(TestBufferOne, {"foo", "bar"})
     end
 
     test "accepts an integer as a key" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment(1, 1)
       assert_key_exists(TestBufferOne, 1)
     end
 
     test "accepts an atom as a key" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment(:foo, 1)
       assert_key_exists(TestBufferOne, :foo)
     end
 
     test "initializes a stat key with a proper count" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment("foo", 10)
       assert_key_count(TestBufferOne, "foo", 10)
     end
 
     test "maintains a proper stat count for a single key" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
       TestBufferOne.increment("foo", 1)
       TestBufferOne.increment("foo", 1)
       TestBufferOne.increment("foo", 1)
@@ -75,7 +76,7 @@ defmodule StatBufferTest do
     end
 
     test "maintains a proper stat count for a single key with concurrency" do
-      TestBufferOne.start()
+      start_supervised(TestBufferOne)
 
       for _ <- 1..10_000 do
         spawn(fn -> TestBufferOne.async_increment("foo", 1) end)
@@ -86,8 +87,8 @@ defmodule StatBufferTest do
     end
 
     test "does not mix keys from different buffers" do
-      TestBufferOne.start()
-      TestBufferTwo.start()
+      start_supervised(TestBufferOne)
+      start_supervised(TestBufferTwo)
 
       TestBufferOne.increment("foo", 100)
       assert_key_count(TestBufferOne, "foo", 100)
@@ -97,7 +98,7 @@ defmodule StatBufferTest do
     end
 
     test "will cause a flush after the specified interval" do
-      TestBufferThree.start()
+      start_supervised(TestBufferThree)
       Process.register(self(), :stat_buffer_test)
       TestBufferThree.increment("foo", 1)
       TestBufferThree.increment("foo", 1)
@@ -106,9 +107,10 @@ defmodule StatBufferTest do
     end
 
     test "will cause the worker to hibernate after the specified timeout" do
-      {:ok, pid} = TestBufferFour.start()
+      start_supervised(TestBufferFour)
       TestBufferFour.increment("foo", 1)
       :timer.sleep(200)
+      pid = Process.whereis(TestBufferFour)
       info = Process.info(pid)
       assert info[:current_function] == {:erlang, :hibernate, 3}
     end
@@ -128,10 +130,6 @@ defmodule StatBufferTest do
 
   def assert_key_count(buffer, key, count) do
     assert StatBuffer.Worker.count(buffer, key) == count
-  end
-
-  def assert_worker_count(count) do
-    StatBuffer.WorkerSupervisor.worker_count() == count
   end
 
   def await_count(buffer, key, count) do

@@ -1,57 +1,42 @@
 defmodule StatBuffer.Flusher do
   @moduledoc false
 
+  @type option :: {:backoff, non_neg_integer()}
+  @type options :: [option()]
+
   ################################
   # Public API
   ################################
 
+  @spec start_link(buffer :: StatBuffer.t(), key :: any(), count :: integer(), options()) ::
+          {:ok, pid()}
+  def start_link(buffer, key, count, opts \\ []) do
+    Task.start_link(__MODULE__, :run, [buffer, key, count, opts])
+  end
+
   @doc false
-  def child_spec(_) do
+  def child_spec(args) do
     %{
       id: __MODULE__,
-      start: {Task.Supervisor, :start_link, [[name: __MODULE__]]}
+      start: {__MODULE__, :start_link, args},
+      restart: :transient
     }
   end
 
-  @doc """
-  Flushes a buffers key.
-
-  If the given key has a counter of 0 - this becomes a noop. Otherwise, the
-  states buffer modules `handle_flush/2` callback will be called.
-  """
-  @spec run(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | no_return
-  def run(_buffer, _key, 0) do
+  @spec run(buffer :: StatBuffer.t(), key :: any(), count :: integer(), backoff :: integer()) ::
+          :ok | no_return
+  def run(_buffer, _key, 0, _opts) do
     :ok
   end
 
-  def run(buffer, key, count) do
+  def run(buffer, key, count, opts) do
     case apply(buffer, :handle_flush, [key, count]) do
       :ok ->
         :ok
 
       _ ->
-        buffer.backoff() |> :timer.sleep()
+        :timer.sleep(opts[:backoff] || 0)
         raise StatBuffer.Error, "buffer flush failed "
     end
-  end
-
-  @doc """
-  Asynchronously flushes a buffers key.
-
-  This will spawn a supervised Task that will retry based on the buffer modules
-  task options.
-
-  Please see `run/1` for further details.
-  """
-  @spec async_run(buffer :: StatBuffer.t(), key :: any(), count :: integer()) ::
-          DynamicSupervisor.on_start_child()
-  def async_run(buffer, key, count) do
-    Task.Supervisor.start_child(
-      __MODULE__,
-      __MODULE__,
-      :run,
-      [buffer, key, count],
-      buffer.task_opts()
-    )
   end
 end

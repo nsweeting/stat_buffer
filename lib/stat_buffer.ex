@@ -13,10 +13,9 @@ defmodule StatBuffer do
         use StatBuffer
       end
 
-  Once we have defined our buffer module, all we must do is implement a
-  `handle_flush/2` callback that allows us to perform an operation with a
-  provided key and counter. This typically means updating a counter in a
-  database.
+  Once we have defined our buffer module, we must then implement the `handle_flush/2`
+  callback that allows us to perform an operation with a rovided key and counter.
+  This could mean something like updating a counter in a database.
 
       defmodule Buffer do
         use StatBuffer
@@ -29,14 +28,16 @@ defmodule StatBuffer do
         end
       end
 
+  We must then add our buffer to our supervision tree.
+
+      children = [
+        Buffer
+      ]
+
   Each flush operation is handled with its own supervised `Task` process. By
   default, a failed flush operation will retry about 3 times within 3 seconds.
 
   ## Usage
-
-  Before using our buffer, we must start it.
-
-      Buffer.start()
 
   With our buffer started, we can now increment key counters. A key can be any
   valid term.
@@ -74,30 +75,16 @@ defmodule StatBuffer do
 
     * `:backoff` - the time in milliseconds between a `handle_flush/2` callback
     failing, and the next attempt occuring. Defaults to `1_000`.
-
-    * `:restart` - the `:restart` option used for the flush task. Please see
-    `Task.Supervisor.start_child/2` for more details.
-
-    * `:shutdown` - the `:shutdown` option used for the flush task. Please see
-    `Task.Supervisor.start_child/2` for more details.
-
-  ## Autostart
-
-  We can start our buffers automatically by adding them to the application config.
-
-      config :stat_buffer, buffers: [
-          MyBufferOne
-          MyBufferTwo
-        ]
-
-  Now, when the `stat_buffer` application starts - your buffers will also be started.
-
   """
 
   @doc """
   Starts the buffer process.
+
+  ## Options
+
+  The options available are the same provided in the "Options" section.
   """
-  @callback start :: GenServer.on_start()
+  @callback start_link(options()) :: GenServer.on_start()
 
   @doc """
   Callback for flushing a key for the buffer.
@@ -108,11 +95,6 @@ defmodule StatBuffer do
   This function is called within its own Task and is supervised. If the
   callback does not return `:ok` - the task will fail and attempt a retry
   with configurable backoff.
-
-  ## Parameters
-
-    - key: Any valid term.
-    - counter: An integer counter.
   """
   @callback handle_flush(key :: any(), counter :: integer()) :: :ok
 
@@ -121,11 +103,6 @@ defmodule StatBuffer do
 
   Each key is scoped to the buffer module. So duplicate keys across different
   buffer modules will not cause issues.
-
-  ## Parameters
-
-    - key: Any valid term.
-    - count: An integer count. Defaults to 1.
   """
   @callback increment(key :: any(), count :: integer()) :: :ok | :error
 
@@ -142,58 +119,41 @@ defmodule StatBuffer do
   @doc """
   Returns the current state of a key from the buffer.
   """
-  @callback count(key :: any()) :: integer() | nil | no_return()
-
-  @doc """
-  The amount of time between buffer flush operations. If specified in the
-  options, a jitter may be applied.
-  """
-  @callback interval :: integer()
-
-  @doc """
-  The amount of time that a buffer key process will remain without recieving
-  work before shutting down.
-  """
-  @callback timeout :: integer()
-
-  @doc """
-  The amount of time that will be applied between failed key flush attempts.
-  """
-  @callback backoff :: integer()
-
-  @doc """
-  The options that will be used when a supervised Task is started to flush
-  the buffer.
-  """
-  @callback task_opts :: keyword()
+  @callback count(key :: any()) :: integer() | nil
 
   @type t :: module
+  @type option ::
+          {:interval, non_neg_integer()}
+          | {:jitter, non_neg_integer()}
+          | {:timeout, non_neg_integer()}
+          | {:backoff, non_neg_integer()}
+  @type options :: [option()]
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       @behaviour StatBuffer
 
-      defaults = [
+      default_opts = [
         interval: 5_000,
         jitter: 0,
         timeout: 10_000,
-        backoff: 1_000,
-        restart: :transient,
-        shutdown: :brutal_kill
+        backoff: 1_000
       ]
 
-      opts = Keyword.merge(defaults, opts)
-
-      @jitter opts[:jitter]
-      @interval opts[:interval]
-      @timeout opts[:timeout]
-      @backoff opts[:backoff]
-      @restart opts[:restart]
-      @task_opts [restart: opts[:restart], shutdown: opts[:shutdown]]
+      @opts Keyword.merge(default_opts, opts)
 
       @impl StatBuffer
-      def start do
-        StatBuffer.WorkerSupervisor.start_worker(__MODULE__)
+      def start_link(opts \\ []) do
+        opts = Keyword.merge(@opts, opts)
+        StatBuffer.Supervisor.start_link(__MODULE__, opts)
+      end
+
+      @doc false
+      def child_spec(opts) do
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [opts]}
+        }
       end
 
       @impl StatBuffer
@@ -221,43 +181,7 @@ defmodule StatBuffer do
         StatBuffer.Worker.count(__MODULE__, key)
       end
 
-      if @jitter > 0 do
-        @impl StatBuffer
-        def interval do
-          @interval + :rand.uniform(@jitter)
-        end
-      else
-        @impl StatBuffer
-        def interval do
-          @interval
-        end
-      end
-
-      @impl StatBuffer
-      def timeout do
-        @timeout
-      end
-
-      @impl StatBuffer
-      def backoff do
-        @backoff
-      end
-
-      @impl StatBuffer
-      def task_opts do
-        @task_opts
-      end
-
-      defoverridable StatBuffer
+      defoverridable handle_flush: 2
     end
-  end
-
-  @doc """
-  Stops and restarts the `:stat_buffer` application.
-  """
-  @spec reset() :: :ok | {:error, term()}
-  def reset do
-    Application.stop(:stat_buffer)
-    Application.start(:stat_buffer)
   end
 end
