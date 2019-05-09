@@ -5,17 +5,17 @@ defmodule StatBuffer.Worker do
 
   require Logger
 
-  alias :ets, as: ETS
+  alias StatBuffer.FlusherSupervisor
 
   ################################
   # Public API
   ################################
 
   @doc false
-  def child_spec(buffer) do
+  def child_spec({buffer, opts}) do
     %{
       id: __MODULE__,
-      start: {__MODULE__, :start_link, [buffer]},
+      start: {__MODULE__, :start_link, [buffer, opts]},
       restart: :transient
     }
   end
@@ -23,9 +23,9 @@ defmodule StatBuffer.Worker do
   @doc """
   Starts a buffer worker process.
   """
-  @spec start_link(buffer :: StatBuffer.t()) :: GenServer.on_start()
-  def start_link(buffer) do
-    GenServer.start_link(__MODULE__, buffer, name: buffer)
+  @spec start_link(buffer :: StatBuffer.t(), keyword()) :: GenServer.on_start()
+  def start_link(buffer, opts) do
+    GenServer.start_link(__MODULE__, {buffer, opts}, name: buffer)
   end
 
   @doc """
@@ -76,74 +76,95 @@ defmodule StatBuffer.Worker do
 
   @doc false
   @impl GenServer
-  def init(buffer) do
-    do_table_init(buffer)
-    {:ok, buffer, buffer.timeout()}
+  def init({buffer, opts}) do
+    config = do_config(buffer, opts)
+    do_table_init(config)
+
+    {:ok, config, config.timeout()}
   end
 
   @doc false
   @impl GenServer
-  def handle_call({:flush, key}, _from, buffer) do
-    do_flush(buffer, key)
-    {:reply, :ok, buffer, buffer.timeout()}
+  def handle_call({:flush, key}, _from, config) do
+    do_flush(config, key)
+    {:reply, :ok, config, config.timeout()}
   end
 
-  def handle_call({:count, key}, _from, buffer) do
-    count = do_lookup(buffer, key)
-    {:reply, count, buffer, buffer.timeout()}
+  def handle_call({:count, key}, _from, config) do
+    count = do_lookup(config, key)
+    {:reply, count, config, config.timeout()}
   end
 
-  def handle_call({:increment, key, count}, _from, buffer) do
-    do_increment(buffer, key, count)
-    {:reply, :ok, buffer, buffer.timeout()}
-  end
-
-  @doc false
-  @impl GenServer
-  def handle_cast({:increment, key, count}, buffer) do
-    do_increment(buffer, key, count)
-    {:noreply, buffer, buffer.timeout()}
-  end
-
-  def handle_info({:flush, key}, buffer) do
-    do_flush(buffer, key)
-    {:noreply, buffer, buffer.timeout()}
+  def handle_call({:increment, key, count}, _from, config) do
+    do_increment(config, key, count)
+    {:reply, :ok, config, config.timeout()}
   end
 
   @doc false
   @impl GenServer
-  def handle_info(:timeout, buffer) do
-    {:noreply, buffer, :hibernate}
+  def handle_cast({:increment, key, count}, config) do
+    do_increment(config, key, count)
+    {:noreply, config, config.timeout()}
+  end
+
+  def handle_info({:flush, key}, config) do
+    do_flush(config, key)
+    {:noreply, config, config.timeout()}
+  end
+
+  @doc false
+  @impl GenServer
+  def handle_info(:timeout, config) do
+    {:noreply, config, :hibernate}
   end
 
   ################################
   # Private Functions
   ################################
 
-  defp do_increment(buffer, key, count) do
-    if ETS.update_counter(buffer, key, count, {0, 0}) == count do
-      Process.send_after(self(), {:flush, key}, buffer.interval())
+  defp do_config(buffer, opts) do
+    [module: buffer]
+    |> Keyword.merge(opts)
+    |> Enum.into(%{})
+  end
+
+  defp do_increment(config, key, count) do
+    if :ets.update_counter(config.module, key, count, {0, 0}) == count do
+      interval = do_calculate_interval(config)
+      Process.send_after(self(), {:flush, key}, interval)
     end
   end
 
+  defp do_calculate_interval(%{jitter: 0, interval: interval}) do
+    interval
+  end
+
+  defp do_calculate_interval(%{jitter: jitter, interval: interval}) do
+    interval + :rand.uniform(jitter)
+  end
+
   defp do_lookup(buffer, key) do
-    case ETS.lookup(buffer, key) do
+    case :ets.lookup(buffer, key) do
       [{^key, count}] -> count
       _ -> nil
     end
   end
 
-  defp do_flush(buffer, key) do
-    case ETS.take(buffer, key) do
-      [{^key, count}] -> StatBuffer.Flusher.async_run(buffer, key, count)
-      _ -> :error
+  defp do_flush(config, key) do
+    case :ets.take(config.module, key) do
+      [{^key, count}] ->
+        opts = [backoff: config.backoff]
+        FlusherSupervisor.start_flusher(config.module, key, count, opts)
+
+      _ ->
+        :error
     end
   end
 
-  defp do_table_init(buffer) do
-    case ETS.info(buffer) do
-      :undefined -> :ets.new(buffer, [:public, :named_table, read_concurrency: true])
-      _ -> buffer
+  defp do_table_init(config) do
+    case :ets.info(config.module) do
+      :undefined -> :ets.new(config.module, [:public, :named_table, read_concurrency: true])
+      _ -> :ok
     end
   end
 end
