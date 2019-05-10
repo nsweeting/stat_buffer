@@ -46,8 +46,6 @@ defmodule StatBuffer do
 
       Buffer.increment("mykey", 10) # increments by 10
 
-      Buffer.async_increment("mykey") # async increments by 1
-
   Key counts are maintained in an ETS table. All keys are scoped to the given
   buffer module - so multiple buffers using the same keys will not cause issues.
 
@@ -107,7 +105,7 @@ defmodule StatBuffer do
   @callback increment(key :: any(), count :: integer()) :: :ok | :error
 
   @doc """
-  Same as `increment/2` except performs the operation asynchronously.
+  This callback has been deprecated - use `c:increment/2` instead.
   """
   @callback async_increment(key :: any(), count :: integer()) :: :ok
 
@@ -167,6 +165,7 @@ defmodule StatBuffer do
       end
 
       @impl StatBuffer
+      @deprecated "Use increment/2 instead"
       def async_increment(key, count \\ 1) do
         StatBuffer.Worker.async_increment(__MODULE__, key, count)
       end

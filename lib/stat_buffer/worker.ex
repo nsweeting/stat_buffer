@@ -28,29 +28,32 @@ defmodule StatBuffer.Worker do
     GenServer.start_link(__MODULE__, {buffer, opts}, name: buffer)
   end
 
+  @doc false
+  def increment(buffer, key) do
+    increment(buffer, key, 1)
+  end
+
   @doc """
   Increments a buffers key by the provided count.
   """
   @spec increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok | :error
-  def increment(buffer, key, count \\ 1, timeout \\ 5_000)
-
-  def increment(buffer, key, count, timeout) when is_integer(count) do
+  def increment(buffer, key, count) when is_integer(count) do
     try do
-      GenServer.call(buffer, {:increment, key, count}, timeout)
-    catch
-      :exit, reason ->
-        Logger.error(inspect(reason))
-        :error
+      do_increment(buffer, key, count)
+    rescue
+      ArgumentError -> :error
     end
   end
 
-  @doc """
-  Same as `increment/3` except performs the operation asynchronously.
-  """
-  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok
-  def async_increment(buffer, key, count \\ 1)
+  @deprecated "Use increment/3 instead"
+  @spec increment(buffer :: StatBuffer.t(), key :: any(), count :: integer(), timeout()) ::
+          :ok | :error
+  def increment(buffer, key, count, _timeout) do
+    increment(buffer, key, count)
+  end
 
-  def async_increment(buffer, key, count) when is_integer(count) do
+  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok
+  def async_increment(buffer, key, count) do
     GenServer.cast(buffer, {:increment, key, count})
   end
 
@@ -90,30 +93,25 @@ defmodule StatBuffer.Worker do
     {:reply, :ok, config, config.timeout()}
   end
 
-  def handle_call({:count, key}, _from, config) do
-    count = do_lookup(config, key)
-    {:reply, count, config, config.timeout()}
+  @doc false
+  @impl GenServer
+  def handle_cast({:schedule_flush, key}, config) do
+    do_schedule_flush(key, config)
+    {:noreply, config, config.timeout()}
   end
 
-  def handle_call({:increment, key, count}, _from, config) do
-    do_increment(config, key, count)
-    {:reply, :ok, config, config.timeout()}
+  def handle_cast({:increment, key, count}, config) do
+    do_increment(config.module, key, count)
+    {:noreply, config, config.timeout()}
   end
 
   @doc false
   @impl GenServer
-  def handle_cast({:increment, key, count}, config) do
-    do_increment(config, key, count)
-    {:noreply, config, config.timeout()}
-  end
-
   def handle_info({:flush, key}, config) do
     do_flush(config, key)
     {:noreply, config, config.timeout()}
   end
 
-  @doc false
-  @impl GenServer
   def handle_info(:timeout, config) do
     {:noreply, config, :hibernate}
   end
@@ -128,11 +126,17 @@ defmodule StatBuffer.Worker do
     |> Enum.into(%{})
   end
 
-  defp do_increment(config, key, count) do
-    if :ets.update_counter(config.module, key, count, {0, 0}) == count do
-      interval = do_calculate_interval(config)
-      Process.send_after(self(), {:flush, key}, interval)
+  defp do_increment(buffer, key, count) do
+    if :ets.update_counter(buffer, key, count, {0, 0}) == count do
+      GenServer.cast(buffer, {:schedule_flush, key})
     end
+
+    :ok
+  end
+
+  defp do_schedule_flush(key, config) do
+    interval = do_calculate_interval(config)
+    Process.send_after(self(), {:flush, key}, interval)
   end
 
   defp do_calculate_interval(%{jitter: 0, interval: interval}) do
@@ -141,13 +145,6 @@ defmodule StatBuffer.Worker do
 
   defp do_calculate_interval(%{jitter: jitter, interval: interval}) do
     interval + :rand.uniform(jitter)
-  end
-
-  defp do_lookup(buffer, key) do
-    case :ets.lookup(buffer, key) do
-      [{^key, count}] -> count
-      _ -> nil
-    end
   end
 
   defp do_flush(config, key) do
@@ -161,10 +158,25 @@ defmodule StatBuffer.Worker do
     end
   end
 
+  defp do_lookup(buffer, key) do
+    case :ets.lookup(buffer, key) do
+      [{^key, count}] -> count
+      _ -> nil
+    end
+  end
+
   defp do_table_init(config) do
     case :ets.info(config.module) do
-      :undefined -> :ets.new(config.module, [:public, :named_table, read_concurrency: true])
-      _ -> :ok
+      :undefined ->
+        :ets.new(config.module, [
+          :public,
+          :named_table,
+          write_concurrency: true,
+          read_concurrency: true
+        ])
+
+      _ ->
+        :ok
     end
   end
 end
