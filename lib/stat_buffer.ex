@@ -107,7 +107,7 @@ defmodule StatBuffer do
   @doc """
   This callback has been deprecated - use `c:increment/2` instead.
   """
-  @callback async_increment(key :: any(), count :: integer()) :: :ok | :error
+  @callback async_increment(key :: any(), count :: integer()) :: :ok
 
   @doc """
   Asynchronously flushes a given key from the buffer.

@@ -52,8 +52,7 @@ defmodule StatBuffer.Worker do
     increment(buffer, key, count)
   end
 
-  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) ::
-          :ok | :error
+  @spec async_increment(buffer :: StatBuffer.t(), key :: any(), count :: integer()) :: :ok
   def async_increment(buffer, key, count) do
     GenServer.cast(buffer, {:increment, key, count})
   end
