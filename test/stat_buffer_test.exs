@@ -26,7 +26,7 @@ defmodule StatBufferTest do
   end
 
   defmodule TestBufferSix do
-    use StatBuffer, interval: 0
+    use StatBuffer, interval: 0, backoff: 0
 
     def handle_flush(key, count) do
       send(:stat_buffer_test, {key, count})
