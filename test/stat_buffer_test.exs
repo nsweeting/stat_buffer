@@ -3,21 +3,10 @@ defmodule StatBufferTest do
 
   defmodule TestBufferOne do
     use StatBuffer, interval: 1_000
-
-    def handle_flush(key, count) do
-      :timer.sleep(20_000)
-      IO.inspect([key, count])
-    end
   end
 
   defmodule TestBufferTwo do
     use StatBuffer, interval: 1_000
-
-    def handle_flush(key, count) do
-      IO.inspect([key, count])
-
-      :ok
-    end
   end
 
   defmodule TestBufferThree do
@@ -34,6 +23,24 @@ defmodule StatBufferTest do
 
   defmodule TestBufferFive do
     use StatBuffer, timeout: 100
+  end
+
+  defmodule TestBufferSix do
+    use StatBuffer, interval: 0
+
+    def handle_flush(key, count) do
+      send(:stat_buffer_test, {key, count})
+      raise "error"
+    end
+  end
+
+  defmodule TestBufferSeven do
+    use StatBuffer, interval: 0, backoff: 200
+
+    def handle_flush(key, _count) do
+      send(:stat_buffer_test, {key, :os.system_time(:millisecond)})
+      :error
+    end
   end
 
   describe "increment/2" do
@@ -115,8 +122,39 @@ defmodule StatBufferTest do
       assert info[:current_function] == {:erlang, :hibernate, 3}
     end
 
+    @tag capture_log: true
     test "will return :error if the process isnt alive" do
       assert :error = TestBufferFive.increment("foo")
+    end
+
+    @tag capture_log: true
+    test "will retry failed flush operations" do
+      start_supervised(TestBufferSix)
+      Process.register(self(), :stat_buffer_test)
+      TestBufferSix.increment("foo")
+
+      :timer.sleep(100)
+
+      assert_receive({"foo", 1})
+      assert_receive({"foo", 1})
+      assert_receive({"foo", 1})
+      assert_receive({"foo", 1})
+    end
+
+    @tag capture_log: true
+    test "will retry with backoff flush operations that dont return :ok " do
+      start_supervised(TestBufferSeven)
+      Process.register(self(), :stat_buffer_test)
+      TestBufferSeven.increment("foo")
+
+      :timer.sleep(100)
+
+      assert_receive({"foo", time1}, 500)
+      assert_receive({"foo", time2}, 500)
+      assert time2 - time1 > 200
+      assert_receive({"foo", time1}, 500)
+      assert_receive({"foo", time2}, 500)
+      assert time2 - time1 > 200
     end
   end
 
