@@ -1,13 +1,13 @@
 defmodule StatBuffer.MixProject do
   use Mix.Project
 
-  @version "0.5.0"
+  @version "1.0.0"
 
   def project do
     [
       app: :stat_buffer,
       version: @version,
-      elixir: "~> 1.6",
+      elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),

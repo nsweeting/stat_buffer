@@ -30,13 +30,19 @@ defmodule StatBuffer.Flusher do
   end
 
   def run(buffer, key, count, opts) do
-    case apply(buffer, :handle_flush, [key, count]) do
-      :ok ->
-        :ok
+    try do
+      case apply(buffer, :handle_flush, [key, count]) do
+        :ok ->
+          :ok
 
-      _ ->
+        _ ->
+          :timer.sleep(opts[:backoff] || 0)
+          raise StatBuffer.Error, "buffer flush failed "
+      end
+    rescue
+      exception ->
         :timer.sleep(opts[:backoff] || 0)
-        raise StatBuffer.Error, "buffer flush failed "
+        reraise(exception, __STACKTRACE__)
     end
   end
 end

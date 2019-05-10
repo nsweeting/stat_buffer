@@ -1,7 +1,12 @@
 language: elixir
-
-elixir:
-  - 1.6.4
-
+sudo: false
 script:
+  - if [ "$CHECK_FORMATTED" = true ]; then mix format --check-formatted; fi
   - mix test
+matrix:
+  include:
+    - elixir: 1.7
+      otp_release: 19.3
+    - elixir: 1.8
+      otp_release: 21.2
+      env: CHECK_FORMATTED=true
