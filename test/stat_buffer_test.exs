@@ -158,6 +158,14 @@ defmodule StatBufferTest do
     end
   end
 
+  test "will dump the buffer on buffer termination" do
+    start_supervised(TestBufferThree)
+    Process.register(self(), :stat_buffer_test)
+    TestBufferThree.increment("dump")
+    stop_supervised(TestBufferThree.Supervisor)
+    assert_receive({"dump", _}, 500)
+  end
+
   def assert_key_exists(buffer, key) do
     assert buffer |> StatBuffer.Worker.count(key) |> is_integer()
   end
