@@ -5,7 +5,7 @@ defmodule StatBuffer.Worker do
 
   require Logger
 
-  alias StatBuffer.FlusherSupervisor
+  alias StatBuffer.{Flusher, FlusherSupervisor}
 
   ################################
   # Public API
@@ -80,6 +80,7 @@ defmodule StatBuffer.Worker do
   @doc false
   @impl GenServer
   def init({buffer, opts}) do
+    Process.flag(:trap_exit, true)
     config = do_config(buffer, opts)
     do_table_init(config)
 
@@ -116,6 +117,15 @@ defmodule StatBuffer.Worker do
     {:noreply, config, :hibernate}
   end
 
+  @doc false
+  @impl GenServer
+  def terminate(_reason, config) do
+    total = do_dump(config)
+    Logger.info("[#{inspect(config.module)}] DUMPED total=#{total}")
+
+    :ok
+  end
+
   ################################
   # Private Functions
   ################################
@@ -147,15 +157,25 @@ defmodule StatBuffer.Worker do
     interval + :rand.uniform(jitter)
   end
 
+  defp do_dump(config) do
+    config.module
+    |> :ets.tab2list()
+    |> Enum.reduce(0, fn {key, count}, acc ->
+      Flusher.run(config.module, key, count, [])
+      acc + 1
+    end)
+  end
+
   defp do_flush(config, key) do
     case :ets.take(config.module, key) do
-      [{^key, count}] ->
-        opts = [backoff: config.backoff]
-        FlusherSupervisor.start_flusher(config.module, key, count, opts)
-
-      _ ->
-        :error
+      [{^key, count}] -> do_flush(config, key, count)
+      _ -> :error
     end
+  end
+
+  defp do_flush(config, key, count) do
+    opts = [backoff: config.backoff]
+    FlusherSupervisor.start_flusher(config.module, key, count, opts)
   end
 
   defp do_lookup(buffer, key) do
